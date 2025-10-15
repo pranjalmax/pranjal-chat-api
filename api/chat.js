@@ -1,7 +1,6 @@
 // File: api/chat.js
-// Vercel Serverless Function (Node 18+)
+// Vercel Serverless Function (Node 18+), using Groq (free) instead of OpenAI
 
-// Only allow requests from your GitHub Pages domain
 const ALLOWED_ORIGIN = "https://pranjalmax.github.io";
 
 export default async function handler(req, res) {
@@ -24,7 +23,7 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body || {};
 
-    // --- Curated knowledge base about YOU (edit freely) ---
+    // === Curated knowledge about you ===
     const BIO = `
 You are an assistant that answers ONLY about Pranjal Srivastava.
 If a question is unrelated to Pranjal’s portfolio, politely say you only answer portfolio-related questions.
@@ -71,15 +70,15 @@ STYLE: Be concise, helpful, and recruiter-friendly. If unknown, say so briefly a
     const convo = history.slice(-6).map(h => `${h.role.toUpperCase()}: ${h.content}`).join("\n");
     const prompt = `${BIO}\n\nCONTEXT:\n${convo}\n\nUSER QUESTION: ${message}\n\nANSWER:`;
 
-    // Call OpenAI (set OPENAI_API_KEY in Vercel)
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    // === Groq's OpenAI-compatible chat completions endpoint ===
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "llama-3.1-70b-versatile",
         messages: [
           { role: "system", content: "You are a helpful, concise assistant that only answers about Pranjal's portfolio and background." },
           { role: "user", content: prompt }
@@ -94,6 +93,7 @@ STYLE: Be concise, helpful, and recruiter-friendly. If unknown, say so briefly a
       res.setHeader("Access-Control-Allow-Origin", allow);
       return res.status(500).json({ error: "LLM error", detail: err });
     }
+
     const data = await r.json();
     const answer = data?.choices?.[0]?.message?.content?.trim() || "Sorry, I couldn’t generate a response.";
 
