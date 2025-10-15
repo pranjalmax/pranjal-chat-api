@@ -1,7 +1,18 @@
 // File: api/chat.js
-// Vercel Serverless Function (Node 18+), using Groq (free) instead of OpenAI
+// Vercel Serverless Function (Node 18+), using Groq (free-friendly)
+// Adds model fallbacks so decommissioned models don't break the API.
 
 const ALLOWED_ORIGIN = "https://pranjalmax.github.io";
+
+// Prefer a model via env (optional), else use this fallback order:
+const DEFAULT_MODELS = [
+  process.env.GROQ_MODEL,               // optional override from Vercel env
+  "llama-3.3-70b-versatile",            // newer general model
+  "llama-3.1-70b-versatile",            // older 70B (may be sunset in future)
+  "llama-3.1-8b-instant",               // fast & cheap
+  "mixtral-8x7b-32768",                 // strong generalist
+  "gemma2-9b-it"                        // instruction-tuned
+].filter(Boolean);
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || "";
@@ -22,6 +33,10 @@ export default async function handler(req, res) {
 
   try {
     const { message, history = [] } = req.body || {};
+    if (!message || typeof message !== "string") {
+      res.setHeader("Access-Control-Allow-Origin", allow);
+      return res.status(400).json({ error: "Provide 'message' (string)" });
+    }
 
     // === Curated knowledge about you ===
     const BIO = `
@@ -70,32 +85,7 @@ STYLE: Be concise, helpful, and recruiter-friendly. If unknown, say so briefly a
     const convo = history.slice(-6).map(h => `${h.role.toUpperCase()}: ${h.content}`).join("\n");
     const prompt = `${BIO}\n\nCONTEXT:\n${convo}\n\nUSER QUESTION: ${message}\n\nANSWER:`;
 
-    // === Groq's OpenAI-compatible chat completions endpoint ===
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
-        messages: [
-          { role: "system", content: "You are a helpful, concise assistant that only answers about Pranjal's portfolio and background." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.2,
-        max_tokens: 450
-      })
-    });
-
-    if (!r.ok) {
-      const err = await r.text();
-      res.setHeader("Access-Control-Allow-Origin", allow);
-      return res.status(500).json({ error: "LLM error", detail: err });
-    }
-
-    const data = await r.json();
-    const answer = data?.choices?.[0]?.message?.content?.trim() || "Sorry, I couldn’t generate a response.";
+    const answer = await callGroqWithFallback(prompt);
 
     res.setHeader("Access-Control-Allow-Origin", allow);
     return res.status(200).json({ answer });
@@ -103,4 +93,52 @@ STYLE: Be concise, helpful, and recruiter-friendly. If unknown, say so briefly a
     res.setHeader("Access-Control-Allow-Origin", allow);
     return res.status(500).json({ error: "Server error", detail: String(e) });
   }
+}
+
+async function callGroqWithFallback(prompt) {
+  const headers = {
+    "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+    "Content-Type": "application/json"
+  };
+
+  let lastError = null;
+
+  for (const model of DEFAULT_MODELS) {
+    try {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "You are a helpful, concise assistant that only answers about Pranjal's portfolio and background." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 450
+        })
+      });
+
+      if (!r.ok) {
+        const errText = await r.text();
+        // If model is decommissioned/unavailable, try next one
+        if (errText.includes("model_decommissioned") || errText.includes("not found") || errText.includes("unavailable")) {
+          lastError = errText;
+          continue;
+        }
+        // Other errors: throw
+        throw new Error(errText);
+      }
+
+      const data = await r.json();
+      const answer = data?.choices?.[0]?.message?.content?.trim();
+      if (answer) return answer;
+      lastError = "Empty response from model: " + model;
+    } catch (e) {
+      lastError = String(e);
+      // Try next model
+      continue;
+    }
+  }
+  throw new Error(lastError || "All models failed");
 }
