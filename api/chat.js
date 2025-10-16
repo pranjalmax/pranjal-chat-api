@@ -1,6 +1,6 @@
 // File: api/chat.js
 // Vercel Serverless Function (Node 18+), using Groq (free-friendly)
-// Adds model fallbacks so decommissioned models don't break the API.
+// Adds model fallbacks + simple rate-limit + input guard.
 
 const ALLOWED_ORIGIN = "https://pranjalmax.github.io";
 
@@ -13,6 +13,42 @@ const DEFAULT_MODELS = [
   "mixtral-8x7b-32768",                 // strong generalist
   "gemma2-9b-it"                        // instruction-tuned
 ].filter(Boolean);
+
+// === Rate limit (in-memory token bucket) ===
+// Limits are per-IP for this single function region instance (good enough for abuse dampening).
+const RATE = { capacity: 16, refillPerMinute: 8 }; // burst 16, 8/min
+const buckets = new Map();
+function ipFromReq(req) {
+  const xf = req.headers["x-forwarded-for"];
+  if (typeof xf === "string" && xf.length) return xf.split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+function takeToken(ip) {
+  const now = Date.now();
+  let b = buckets.get(ip);
+  if (!b) {
+    b = { tokens: RATE.capacity, last: now };
+  } else {
+    const elapsedMin = (now - b.last) / 60000;
+    b.tokens = Math.min(RATE.capacity, b.tokens + elapsedMin * RATE.refillPerMinute);
+    b.last = now;
+  }
+  if (b.tokens >= 1) {
+    b.tokens -= 1;
+    buckets.set(ip, b);
+    return true;
+  }
+  buckets.set(ip, b);
+  return false;
+}
+
+// === Input guard ===
+const MAX_CHARS = 800; // hard ceiling per message
+const BLOCKED_PATTERNS = [
+  /https?:\/\/\S{20,}/i,            // long links spam
+  /(free\s*money|giveaway)/i,       // simple spammy phrases
+  /[^\w\s.,?!@()\-+/'":;%&]/u       // heavy weird unicode (basic guard, still allows common chars)
+];
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || "";
@@ -31,11 +67,32 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST" });
   }
 
+  // Rate limit
+  const ip = ipFromReq(req);
+  if (!takeToken(ip)) {
+    res.setHeader("Access-Control-Allow-Origin", allow);
+    return res.status(429).json({ error: "Too many requests, please wait a bit." });
+  }
+
   try {
     const { message, history = [] } = req.body || {};
     if (!message || typeof message !== "string") {
       res.setHeader("Access-Control-Allow-Origin", allow);
       return res.status(400).json({ error: "Provide 'message' (string)" });
+    }
+
+    const trimmed = message.trim();
+    if (!trimmed) {
+      res.setHeader("Access-Control-Allow-Origin", allow);
+      return res.status(400).json({ error: "Empty message" });
+    }
+    if (trimmed.length > MAX_CHARS) {
+      res.setHeader("Access-Control-Allow-Origin", allow);
+      return res.status(413).json({ error: `Message too long (max ${MAX_CHARS} chars)` });
+    }
+    if (BLOCKED_PATTERNS.some((re) => re.test(trimmed))) {
+      res.setHeader("Access-Control-Allow-Origin", allow);
+      return res.status(400).json({ error: "Message looks like spam. Try rephrasing." });
     }
 
     // === Curated knowledge about you ===
@@ -54,7 +111,7 @@ EXPERIENCE:
   • Java/Spring & .NET APIs; OpenAPI/Swagger; Postman/Insomnia
   • SQL schema/index tuning; caching; CI/CD with GitHub Actions
   • ServiceNow: Record Producers, UI Policies, Client Scripts, Business Rules, Flow Designer; RBAC
-- ECS — Intern (Jun 2019 – Jul 2019)
+- ECS — Intern (May 2019 - Aug 2019)
   • Server app installs/upgrades; backup/restore runbooks; small automation scripts
 
 EDUCATION:
@@ -83,7 +140,7 @@ STYLE: Be concise, helpful, and recruiter-friendly. If unknown, say so briefly a
     `;
 
     const convo = history.slice(-6).map(h => `${h.role.toUpperCase()}: ${h.content}`).join("\n");
-    const prompt = `${BIO}\n\nCONTEXT:\n${convo}\n\nUSER QUESTION: ${message}\n\nANSWER:`;
+    const prompt = `${BIO}\n\nCONTEXT:\n${convo}\n\nUSER QUESTION: ${trimmed}\n\nANSWER:`;
 
     const answer = await callGroqWithFallback(prompt);
 
