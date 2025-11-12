@@ -119,7 +119,7 @@ PUBLIC PROFILE
 - Portfolio: https://pranjalmax.github.io/pranjal-portfolio/
 
 EXPERIENCE
-- Tinker Tech Logix — Software Developer (Apr 2024 – Aug 2025)
+- Tinker Tech Logix — Software Developer (Apr 2024 – Sept 2025)
   • Java/Spring & .NET APIs; OpenAPI/Swagger; Postman/Insomnia
   • SQL schema/index tuning; caching; CI/CD with GitHub Actions
   • ServiceNow: Record Producers, UI Policies, Client Scripts, Business Rules, Flow Designer; RBAC
