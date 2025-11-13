@@ -1,8 +1,8 @@
 // File: api/chat.js
 // Vercel Serverless Function (Node 18+), using Groq.
-// Persona + memory updated to include all current AI projects and portfolio details.
-// Adds varied openers/closers so responses feel natural (no repeating "happy to help").
-// Keeps your rate-limit, input guard, model fallbacks, and CORS.
+// Persona + memory include all current AI projects and portfolio details.
+// Adds varied openers/closers and paragraph-friendly formatting.
+// Keeps rate-limit, input guard, model fallbacks, and strict CORS.
 
 const ALLOWED_ORIGIN = "https://pranjalmax.github.io";
 
@@ -55,7 +55,7 @@ const PERSONAL = {
     "Die-hard Real Madrid supporter with a jersey collection",
     "Dream: watch a match at the Santiago Bernabéu",
     "Favorite player of all time: Cristiano Ronaldo",
-    "“Max” is the name Pranjal used as a gaming alias since childhood — the portfolio copilot is named after that"
+    "“Max” is the gaming alias Pranjal has used since childhood — the portfolio copilot is named after that"
   ]
 };
 
@@ -84,6 +84,23 @@ const CLOSERS = [
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// === Paragraph-friendly formatter (pairs with BubbleText in MaxChat.tsx) ===
+function formatParagraphs(text) {
+  if (!text || typeof text !== "string") return text;
+  // If the model already used blank lines, keep them.
+  if (/\n{2,}/.test(text)) return text.trim();
+
+  // For long walls of text, add paragraph breaks every ~2–3 sentences.
+  const sentences = text.split(/(?<=[.?!])\s+(?=[A-Z0-9“"('\[])/);
+  if (sentences.length < 4) return text.trim();
+
+  const chunks = [];
+  for (let i = 0; i < sentences.length; i += 3) {
+    chunks.push(sentences.slice(i, i + 3).join(" "));
+  }
+  return chunks.join("\n\n").trim();
 }
 
 // === Main handler ===
@@ -136,7 +153,8 @@ export default async function handler(req, res) {
     // (Blends your older profile with all new AI projects & portfolio updates.)
     const BIO = `
 You are "Max-AI Assistant," a warm, friendly, concise guide who answers ONLY about **Pranjal Srivastava** and his public portfolio.
-Tone: upbeat, clear, brief but helpfully detailed; avoid heavy jargon; keep it recruiter-friendly. Vary your opener/closer—do NOT always say “Happy to help.” If a question is non-portfolio, gently steer back.
+Tone: upbeat, clear, brief but helpfully detailed; keep it recruiter-friendly. Vary your opener/closer—do NOT always say the same greeting. If a question is non-portfolio, gently steer back.
+Formatting: Use short paragraphs separated by blank lines. When listing items, use compact bullet points.
 
 PUBLIC PROFILE
 - Name: Pranjal Srivastava  •  Location: Corpus Christi, TX
@@ -156,7 +174,7 @@ EDUCATION
 CORE SKILLS
 - APIs/Web: Java, Spring Boot, .NET/C#, REST, Swagger/OpenAPI; Postman/Insomnia
 - ServiceNow: App Engine, Portal, Record Producers, Client Scripts, UI Policies, Business Rules, Flow Designer, Notifications, ACLs/RBAC
-- Data/SQL: SQL Server/Postgres, indexing & perf, SSRS/Power BI
+- Data/SQL: SQL Server/Postgres, indexing & performance, SSRS/Power BI
 - AI/ML: Python, embeddings/RAG basics, WebGPU/WebLLM, Transformers.js, retrieval, evaluation metrics
 - DevOps: Git/GitHub, GitHub Actions/Jenkins, Docker, basic AWS/Azure
 
@@ -164,7 +182,7 @@ AI PROJECTS — CLEAR, RECRUITER-READY (site “AI Lab”)
 1) Vanessa — Voice AI Acquisitions Agent (Vapi + Node/Express, browser dialer)
    • Detects seller intent in under ~90s; captures price/timing/condition; polite branches (No/CallLater/DNC); ≤180s cap.
    • Webhook → /dashboard with real-time badges (Qualified/Not Qualified); deterministic qualification rule.
-   • Solved CORS/ngrok; added health + JSON feeds. PSTN not enabled → optimized for browser-call demo.  
+   • Solved CORS/ngrok; added health + JSON feeds. PSTN not enabled → optimized for browser-call demo.
 
 2) Private Doc Chat — On-Device RAG (Browser-Only)
    • 100% local: pdf.js text extraction; sliding-window chunking (~900 chars, ~150 overlap); MiniLM embeddings via Transformers.js; cosine Top-k retrieval; tiny WebLLM on WebGPU for generation.
@@ -176,16 +194,24 @@ AI PROJECTS — CLEAR, RECRUITER-READY (site “AI Lab”)
 
 4) MAX — Portfolio Copilot (Live portfolio + Vercel serverless chat API)
    • Safe, scoped assistant that only answers about Pranjal; serverless API with strict CORS, rate-limit, input guard, and model fallbacks.
-   • Frontend: React + Tailwind; floating button; clean, modern, “AI-native” vibe.
+   • Frontend: React + Tailwind; floating button; modern “AI-native” vibe.
 
 SERVICE NOW / FOUNDATIONS PROJECTS (selection)
 - Dog Adoption Portal — custom tables (Dogs, Adoption Centers), Service Portal Record Producer mapping, validations, notifications, role-based visibility.
 - Helpdesk Ticketing — Tickets/Departments/Technicians tables; portal intake; Business Rules/Flow Designer auto-assignment; notifications; simple dashboards.
 - Academic/ML work: ECG Heart Failure detection (CNN), DDoS on SDN (Mininet/RYU), DB optimizations via DS&A, Fake-News detection, Weather forecasting (RNN/CNN).
 
+CREDENTIALS & CERTIFICATIONS (public)
+- Programming in Python for Everyone (Coursera)
+- Learn C++ Programming — Beginner to Advance — Deep Dive in C++
+- Complete ServiceNow Developer Course (Udemy)
+- micro1 — Certified Software Engineer (AI Interview), Sep 2025
+- ChatGPT Prompt Engineering for Developers
+- Building Real-Time Video AI Applications (Nvidia)
+
 PORTFOLIO IMPLEMENTATION NOTES
 - Deployed on GitHub Pages; fast, accessible; SEO/OG/JSON-LD; sticky header; modern dark UI; MAX chat onsite.
-- Hero uses /portfolio_image.png; Contact section includes four resume buttons:
+- Hero uses /src/assets/portfolio_image.png (bundled); Contact section includes four resume buttons:
   • Pranjal_Srivastava_Resume_AIEngineer_Multipurpose.pdf
   • Pranjal_Srivastava_Resume_FrontendEngineer_Multipurpose.pdf
   • Pranjal_Srivastava_Resume_FullStackEngineer_Multipurpose.pdf
@@ -197,24 +223,28 @@ STRICT POLICY
 - Stay on-topic: if the user asks about unrelated topics, gently redirect to portfolio-relevant info.
 
 STYLE GUIDANCE (enforced by you)
-- Keep answers crisp with context cues (what, why, how, impact). Link to the right section/page when helpful.
-- Vary your opener/closer naturally; don’t repeat the same greeting each time.
+- Keep answers crisp with context cues (what, why, how, impact).
+- Use short paragraphs separated by blank lines; bullets when helpful.
+- Vary your opener/closer naturally; don’t repeat the same phrase.
 `;
 
     // Build short recent context for few-shot continuity
     const convo = history.slice(-6).map(h => `${h.role.toUpperCase()}: ${h.content}`).join("\n");
     const prompt = `${BIO}\n\nRECENT CONTEXT:\n${convo}\n\nUSER: ${trimmed}\n\nASSISTANT (Max-AI Assistant):`;
 
-    const answer = await callGroqWithFallback(prompt);
+    const raw = await callGroqWithFallback(prompt);
 
     // Add a natural opener/closer so it doesn't feel repetitive
     const prepend = Math.random() < 0.6; // usually prepend
-    const final = prepend
-      ? `${pick(OPENERS)} ${answer}`
-      : `${answer} ${Math.random() < 0.8 ? pick(CLOSERS) : ""}`.trim();
+    const flavored = prepend
+      ? `${pick(OPENERS)} ${raw}`
+      : `${raw} ${Math.random() < 0.8 ? pick(CLOSERS) : ""}`.trim();
+
+    // Ensure paragraph breaks for better readability in the UI
+    const answer = formatParagraphs(flavored);
 
     res.setHeader("Access-Control-Allow-Origin", allow);
-    return res.status(200).json({ answer: final, assistant: "Max-AI Assistant" });
+    return res.status(200).json({ answer, assistant: "Max-AI Assistant" });
   } catch (e) {
     res.setHeader("Access-Control-Allow-Origin", allow);
     return res.status(500).json({ error: "Server error", detail: String(e) });
@@ -238,7 +268,7 @@ async function callGroqWithFallback(prompt) {
             {
               role: "system",
               content:
-                "You are Max-AI Assistant: warm, friendly, and concise. You ONLY answer about Pranjal's portfolio/background. Be accurate, upbeat, and helpful. Vary your opener/closer; do not always say the same phrase. If non-portfolio, gently steer back."
+                "You are Max-AI Assistant: warm, friendly, and concise. You ONLY answer about Pranjal's portfolio/background. Be accurate, upbeat, and helpful. Use short paragraphs with blank lines; bullets when helpful. Vary your opener/closer. If non-portfolio, gently steer back."
             },
             { role: "user", content: prompt }
           ],
