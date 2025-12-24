@@ -228,6 +228,19 @@ CREDENTIALS & CERTIFICATIONS (public)
 - ChatGPT Prompt Engineering for Developers
 - Building Real-Time Video AI Applications (Nvidia)
 
+
+OUTSIDE WORK (PERSONAL)
+- Football (Soccer): Huge Real Madrid fan since age 9 (jerseys, flags, late-night Champions League). Can't wait for the World Cup.
+- Hobbies: Movies (theater experience > laptop), Counter-Strike, FIFA.
+- Music: Bollywood, Indie Indian/Pakistani (Hindi/Urdu), The Weeknd. "Good music and good conversations."
+
+PLAYGROUND (ENGINEER'S WORKBENCH) — The interactive dashboard on this site
+- System Console: Simulates live backend logs (RAG pipelines, CI/CD, Training).
+- Token Logic: Real-time token counter & cost estimator comparing GPT-4o vs Claude 3.5 Sonnet.
+- System Health: Interactive chaos sliders ("Temperature" adds text glitches, "Latency" adds network lag).
+- Vector Search: Visual RAG simulator that "scans" for semantic matches (e.g., "job" -> "Experience" node).
+- Prompt Kit: One-click shortcuts to ask MAX about specific topics.
+
 PORTFOLIO IMPLEMENTATION NOTES
 - Deployed on GitHub Pages; fast, accessible; SEO/OG/JSON-LD; sticky header; modern dark UI; MAX chat onsite.
 - Hero uses /src/assets/portfolio_image.png (bundled); Contact section includes one resume button:
