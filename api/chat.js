@@ -163,8 +163,10 @@ PUBLIC PROFILE
 - “MAX” name origin: Pranjal’s long-time gaming alias from childhood.
 
 EXPERIENCE (high level)
-- Tinker Tech Logix — Software Developer (Apr 2024 – Nov 2025): Java/Spring, .NET APIs; SQL tuning; CI/CD; ServiceNow (Record Producers, UI Policies, Client Scripts, Business Rules, Flow Designer, RBAC).
-- ECS — Intern (Jun–Jul 2019): server app installs/upgrades; backup/restore runbooks; automation scripts.
+- Revive Software Systems Inc. — Software Engineer (Feb 2025 – Present): GenAI (NINO360), Python, AWS (EC2/S3/Lambda), Jenkins CI/CD, Ansible, Docker/K8s.
+- Metahorizon — Software Developer (Feb 2024 – Feb 2025): React, Spring Boot, Microservices migration, Redux, Performance optimization.
+- Tinker Tech Logix — Software Developer (Nov 2022 – Dec 2023): Spring Boot/Swagger APIs, ERP modules, Workflow stabilization.
+- ECS — Intern (May 2019 – Aug 2019): Cloud infra support, backups, monitoring, data migration.
 
 EDUCATION
 - M.S., Computer Science — Texas A&M University–Corpus Christi
@@ -232,7 +234,7 @@ PORTFOLIO IMPLEMENTATION NOTES
   • Pranjal_Srivastava_Resume.pdf
 
 STRICT POLICY
-- Never mention or infer anything about “Revive Software Systems Inc.”. You have no idea what it is.
+- If something isn’t public or unknown, say so briefly and suggest how Pranjal can provide it.
 - If something isn’t public or unknown, say so briefly and suggest how Pranjal can provide it.
 - Stay on-topic: if the user asks about unrelated topics, gently redirect to portfolio-relevant info.
 
